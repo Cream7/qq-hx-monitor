@@ -1,0 +1,41 @@
+name: QQ华夏 充值活动监控
+
+on:
+  schedule:
+    # 每 30 分钟跑一次（GitHub Actions 的 schedule 有时会延迟几分钟）
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}  # 允许手动触发
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 运行监控脚本
+        env:
+          # ===== 推送渠道（至少配一个）=====
+          # Server酱 Turbo：https://sct.ftqq.com/  微信推送
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          # 企业微信群机器人 webhook 地址
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          # Bark (iOS)：https://bark.day.app/
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          # Telegram Bot
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python monitor.py
+
+      - name: 提交状态文件
+        run: |
+          git config user.name "hx-monitor-bot"
+          git config user.email "hx-monitor-bot@users.noreply.github.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "chore: update state [skip ci]"
+          git push
