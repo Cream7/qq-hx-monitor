@@ -22,6 +22,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: 安装 Playwright
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
       - name: 运行监控脚本
         env:
           # ===== 推送渠道（至少配一个）=====
