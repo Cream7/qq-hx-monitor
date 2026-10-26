@@ -21,15 +21,11 @@ NEWS_URL = f"{BASE}/webplat/info/news_version3/607/1262/m1099/list_1.shtml"
 MAIN_URL = f"{BASE}/main.shtml"
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 
-# 轮播/新闻标题命中任一关键词即视为充值活动
-KEYWORDS = [
-    "充值", "回馈", "限时充", "充返", "返利", "送元宝", "送点券",
-    "充值送", "充值得", "充值大", "充值好礼", "福利充", "特惠充",
-    "元宝", "点券",
+# 排除词（命中即不通知）：账号处罚/封禁类
+EXCLUDE = [
+    "处罚", "封禁", "封号", "违规", "第三方软件", "外挂",
+    "打击", "线下交易", "防骗", "安全公告",
 ]
-EXCLUDE = ["处罚", "打击", "违规", "维护公告", "合区", "数据互通",
-           "问卷", "封号", "防骗", "安全", "线下交易", "自助", "客服",
-           "新服", "开服", "战场", "猎魂"]
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -93,12 +89,11 @@ def parse_news(html: str):
     return uniq
 
 
-def is_recharge(title: str) -> bool:
-    if not title:
+def is_interesting(title: str) -> bool:
+    """除了处罚/封禁类，其他新动态都通知。"""
+    if not title or len(title.strip()) < 2:
         return False
-    if any(w in title for w in EXCLUDE):
-        return False
-    return any(w in title for w in KEYWORDS)
+    return not any(w in title for w in EXCLUDE)
 
 
 # ---------- 推送渠道 ----------
@@ -166,17 +161,17 @@ def main():
     news = parse_news(fetch(NEWS_URL))
     print(f"新闻 {len(news)} 条")
 
-    # 合并候选
+    # 合并候选：轮播 + 新闻，排除处罚类
     candidates = []
     for it in roll_items:
-        if is_recharge(it["text"]):
+        if is_interesting(it["text"]):
             candidates.append({"title": it["text"], "url": it["href"], "source": "轮播"})
     for n in news:
-        if is_recharge(n["title"]):
+        if is_interesting(n["title"]):
             candidates.append({"title": n["title"], "url": n["url"],
                                "source": f"新闻·{n['date']}"})
 
-    print(f"\n命中充值活动 {len(candidates)} 条：")
+    print(f"\n候选新动态 {len(candidates)} 条：")
     for c in candidates:
         print(f"  - [{c['source']}] {c['title']}  ->  {c['url']}")
 
@@ -199,10 +194,10 @@ def main():
         save_state(state)
         return
 
-    print(f"发现 {len(new_ones)} 条新充值活动！")
+    print(f"发现 {len(new_ones)} 条新动态！")
     lines = [f"- [{c['source']}] [{c['title']}]({c['url']})" for c in new_ones]
-    desp = "检测到 QQ 华夏新的充值/限时活动，快去看看！\n\n" + "\n".join(lines)
-    notify("【QQ华夏】发现新充值活动！", desp)
+    desp = "QQ华夏官网有新动态：\n\n" + "\n".join(lines)
+    notify("【QQ华夏】官网新动态", desp)
 
     state["seen"] = list((seen | {c["title"] for c in candidates}))[-200:]
     state["last_run"] = datetime.now().isoformat()
