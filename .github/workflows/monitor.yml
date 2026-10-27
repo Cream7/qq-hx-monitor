@@ -2,8 +2,8 @@ name: QQ华夏 充值活动监控
 
 on:
   schedule:
-    # 每 30 分钟跑一次（GitHub Actions 的 schedule 有时会延迟几分钟）
-    - cron: "*/30 * * * *"
+    # 每 10 分钟跑一次（GitHub schedule 半夜可能延迟，但高频跑总比低频强）
+    - cron: "*/10 * * * *"
   workflow_dispatch: {}  # 允许手动触发
 
 jobs:
@@ -22,10 +22,21 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: 缓存 Playwright 浏览器
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/monitor.py') }}
+
       - name: 安装 Playwright
         run: |
           pip install playwright
-          playwright install chromium --with-deps
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+            playwright install chromium --with-deps
+          else
+            playwright install chromium
+          fi
 
       - name: 运行监控脚本
         env:
